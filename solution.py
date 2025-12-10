@@ -32,36 +32,72 @@ def load_train_data(filepath):
         return []
     return data
 
-def load_test_data(filepath):
-    data = []
+def load_test_datasets(filepath):
+    """
+    Parses tests.txt into a dictionary of datasets:
+    {
+        'Test 1': [...],
+        'Test 2': [...],
+        ...
+    }
+    """
+    datasets = {}
+    current_dataset_name = None
+    current_rows = []
+
     try:
         with open(filepath, 'r') as f:
-            content = f.read()
+            lines = f.readlines()
     except FileNotFoundError:
         print(f"Error: {filepath} not found.")
-        return []
+        return {}
     except Exception as e:
         print(f"Error reading {filepath}: {e}")
-        return []
+        return {}
 
-    lines = content.split('\n')
     for line in lines:
         line = line.strip()
-        if not line: continue
-        match = re.search(r'([\d\.]+),\s*([\d\.]+),\s*([\d\.]+)\s*\((\d+)-(\d+)\)$', line)
-        if match:
+        if not line:
+            continue
+
+        # Check for header
+        # Headers seem to look like "test 1 82 matches" or "Test 4 (matches 79)"
+        # Regex to detect these headers
+        header_match = re.match(r'^(?:test|Test)\s*(\d+).*', line)
+        if header_match:
+            # If we were collecting rows for a previous dataset, save them
+            if current_dataset_name:
+                datasets[current_dataset_name] = current_rows
+
+            current_dataset_name = f"Test {header_match.group(1)}"
+            current_rows = []
+            continue
+
+        # Parse match row
+        # Pattern: Team A - Team B 1.67, 3.29, 4.84 (0-0)
+        match_data = re.search(r'([\d\.]+),\s*([\d\.]+),\s*([\d\.]+)\s*\((\d+)-(\d+)\)$', line)
+        if match_data:
             try:
-                h = float(match.group(1))
-                d = float(match.group(2))
-                a = float(match.group(3))
-                s1 = int(match.group(4))
-                s2 = int(match.group(5))
+                h = float(match_data.group(1))
+                d = float(match_data.group(2))
+                a = float(match_data.group(3))
+                s1 = int(match_data.group(4))
+                s2 = int(match_data.group(5))
                 r = 1 if s1 > s2 else (2 if s1 == s2 else 3)
+
                 if h == 0 and d == 0 and a == 0: continue
-                data.append({'h': h, 'd': d, 'a': a, 'r': r})
+
+                current_rows.append({'h': h, 'd': d, 'a': a, 'r': r})
             except ValueError:
                 continue
-    return data
+
+    # Save last dataset
+    if current_dataset_name:
+        datasets[current_dataset_name] = current_rows
+
+    return datasets
+
+# ----------------- FEATURE GENERATION -----------------
 
 def safe_div(x, y):
     return x / y if abs(y) > 1e-9 else 0
@@ -84,81 +120,73 @@ def generate_features(row):
         'r_ha': safe_div(h, a),
         'r_da': safe_div(d, a),
         'd_minus_geo_ha': d - safe_sqrt(h*a),
-        'prod': h*d*a
+        'prod': h*d*a,
+        '1/h': safe_div(1, h),
+        '1/a': safe_div(1, a),
+        '1/d': safe_div(1, d)
     }
-
-    # Add a few more powerful ones
-    base['1/h'] = safe_div(1, h)
-    base['1/a'] = safe_div(1, a)
-    base['1/d'] = safe_div(1, d)
-
     return base
 
-def solve():
-    train_data = load_train_data('train_data.txt')
-    test_data = load_test_data('tests.txt')
-    all_rows = train_data + test_data
+# ----------------- SOLVER -----------------
 
-    if not all_rows:
-        print("No data found. Please ensure train_data.txt and tests.txt exist.")
+def solve():
+    train_rows = load_train_data('train_data.txt')
+    test_datasets = load_test_datasets('tests.txt')
+
+    if not train_rows and not test_datasets:
+        print("No data found.")
         return
 
-    dataset = []
+    # Combine all data for training the formula
+    all_rows = train_rows[:]
+    for rows in test_datasets.values():
+        all_rows.extend(rows)
+
+    # Prepare full dataset for rule finding
+    full_dataset = []
     for i, r in enumerate(all_rows):
-        dataset.append({
+        full_dataset.append({
             'id': i,
             'feats': generate_features(r),
             'r': r['r']
         })
 
-    draws = [d for d in dataset if d['r'] == 2]
-    non_draws = [d for d in dataset if d['r'] != 2]
+    draws = [d for d in full_dataset if d['r'] == 2]
+    non_draws = [d for d in full_dataset if d['r'] != 2]
 
     if not draws:
-        print("No draws in dataset.")
+        print("No draws in full dataset.")
         return
 
-    feature_keys = list(dataset[0]['feats'].keys())
+    print("Training formula on ALL data (Train + Tests 1-6)...")
+    print(f"Total Matches: {len(full_dataset)}")
+    print(f"Total Draws: {len(draws)}")
 
+    feature_keys = list(full_dataset[0]['feats'].keys())
     uncovered_draws = set(d['id'] for d in draws)
     rules = []
 
-    total_tp = 0
-    total_fp = 0
-
-    print(f"Total Matches: {len(dataset)}")
-    print(f"Total Draws: {len(draws)}")
-    print("Finding covering rules...")
-
-    # Covering Algorithm
+    # Covering Algorithm (Same as before)
     while uncovered_draws:
-        # Pick a random uncovered draw
         seed_id = random.choice(list(uncovered_draws))
         seed = next(d for d in draws if d['id'] == seed_id)
 
-        # Initialize box to seed
         box = {k: (seed['feats'][k], seed['feats'][k]) for k in feature_keys}
-
-        # Current coverage
         current_covered_draws = {seed_id}
 
-        # Try to expand box to include other draws
         candidates = list(uncovered_draws)
         random.shuffle(candidates)
 
         for cand_id in candidates:
             if cand_id == seed_id: continue
-
             cand = next(d for d in draws if d['id'] == cand_id)
 
-            # Temporary expanded box
             temp_box = {}
             for k in feature_keys:
                 curr_min, curr_max = box[k]
                 val = cand['feats'][k]
                 temp_box[k] = (min(curr_min, val), max(curr_max, val))
 
-            # Count FPs in temp_box
             fps = 0
             for nd in non_draws:
                 in_box = True
@@ -170,64 +198,94 @@ def solve():
                         break
                 if in_box:
                     fps += 1
-                    # Heuristic stop
                     if fps > len(current_covered_draws) + 1:
                          break
 
             tps = len(current_covered_draws) + 1
             precision = tps / (tps + fps)
 
-            if precision >= 0.65: # High threshold for individual boxes
-                # Accept expansion
+            if precision >= 0.65:
                 box = temp_box
                 current_covered_draws.add(cand_id)
 
-        # Finalize box stats
-        box_tps = 0
-        box_fps = 0
-        covered_ids = []
+        # Save rule
+        # A rule is a function that takes 'feats' and returns True/False
+        rules.append(box)
 
-        for d in dataset:
+        # Determine actually covered draws (exact check)
+        covered_ids = []
+        for d in draws:
+            if d['id'] in uncovered_draws:
+                in_box = True
+                for k in feature_keys:
+                    min_v, max_v = box[k]
+                    val = d['feats'][k]
+                    if val < min_v or val > max_v:
+                        in_box = False
+                        break
+                if in_box:
+                    covered_ids.append(d['id'])
+
+        for cid in covered_ids:
+            uncovered_draws.remove(cid)
+
+    print(f"Formula generated with {len(rules)} condition sets.")
+
+    # ----------------- EVALUATION -----------------
+
+    def predict(row_feats, rules):
+        # Disjunctive Normal Form: True if ANY box matches
+        for box in rules:
             in_box = True
-            for k in feature_keys:
-                min_v, max_v = box[k]
-                val = d['feats'][k]
+            for k, (min_v, max_v) in box.items():
+                val = row_feats[k]
                 if val < min_v or val > max_v:
                     in_box = False
                     break
             if in_box:
-                if d['r'] == 2:
-                    box_tps += 1
-                    covered_ids.append(d['id'])
-                else:
-                    box_fps += 1
+                return True
+        return False
 
-        # Save rule
-        rule_desc = []
-        for k in feature_keys:
-            min_v, max_v = box[k]
-            rule_desc.append(f"{min_v:.6f} <= {k} <= {max_v:.6f}")
-        rules.append(rule_desc)
+    def evaluate_dataset(name, rows):
+        tp = 0
+        fp = 0
+        total_draws = 0
 
-        total_tp += box_tps
-        total_fp += box_fps
+        for r in rows:
+            feats = generate_features(r)
+            prediction = predict(feats, rules)
+            actual_draw = (r['r'] == 2)
 
-        # print(f"Found Box covering {box_tps} draws with {box_fps} FPs. Precision: {box_tps/(box_tps+box_fps):.4f}")
+            if actual_draw:
+                total_draws += 1
 
-        for cid in covered_ids:
-            if cid in uncovered_draws:
-                uncovered_draws.remove(cid)
+            if prediction and actual_draw:
+                tp += 1
+            elif prediction and not actual_draw:
+                fp += 1
 
-    final_prec = total_tp / (total_tp + total_fp)
-    print(f"Final Recall: 1.0")
-    print(f"Final Precision: {final_prec:.4f}")
+        predicted_draws = tp + fp
+        recall = tp / total_draws if total_draws > 0 else 0
+        precision = tp / predicted_draws if predicted_draws > 0 else 0
 
-    # Print formula
-    print("\nGeneralized Formula (Disjunctive Normal Form):")
-    print("A match is predicted as a DRAW if it satisfies ANY of the following sets of conditions:")
-    for i, r in enumerate(rules):
-        print(f"\nCondition Set {i+1}:")
-        print(" AND ".join(r))
+        print(f"\nDataset: {name}")
+        print(f"Total Matches: {len(rows)}")
+        print(f"Total Draws (Actual): {total_draws}")
+        print(f"Predicted Draws: {predicted_draws}")
+        print(f"TP: {tp} | FP: {fp}")
+        print(f"Recall: {recall:.4f}")
+        print(f"Precision: {precision:.4f}")
+
+    # Evaluate on Train
+    evaluate_dataset("Train Data (1196)", train_rows)
+
+    # Evaluate on Tests 1-6
+    sorted_test_names = sorted(test_datasets.keys(), key=lambda x: int(x.split()[1]))
+    for name in sorted_test_names:
+        evaluate_dataset(name, test_datasets[name])
+
+    # Evaluate on Combined "7 dataset" (which is essentially what we trained on)
+    evaluate_dataset("Combined (Train + Tests 1-6)", all_rows)
 
 if __name__ == "__main__":
     solve()
