@@ -204,7 +204,7 @@ def solve():
             tps = len(current_covered_draws) + 1
             precision = tps / (tps + fps)
 
-            if precision >= 0.95:
+            if precision >= 1.0:
                 box = temp_box
                 current_covered_draws.add(cand_id)
 
