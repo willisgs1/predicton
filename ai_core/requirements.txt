@@ -1,7 +1,7 @@
 qiskit
 qiskit-aer
+qiskit-ibm-runtime
 torch
 requests
 beautifulsoup4
 numpy
-qiskit-ibm-runtime

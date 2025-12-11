@@ -20,7 +20,6 @@ class WebSensor:
         Returns the processed numerical data (the 'problem' to solve).
         """
         if not self.known_urls:
-            # Fallback if list is empty
             self.known_urls = ["https://en.wikipedia.org/wiki/Quantum_computing"]
 
         url = random.choice(self.known_urls)

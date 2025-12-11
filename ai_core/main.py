@@ -15,7 +15,8 @@ def life_loop():
     brain = EvolutionaryBrain()
 
     # Load previous state if exists
-    brain.load_state("ai_core/brain_state.pth")
+    # We save in the current directory for simplicity in the zip distribution
+    brain.load_state("brain_state.pth")
 
     iteration = 0
 
@@ -54,9 +55,14 @@ def life_loop():
             loss = brain.learn(problem_vector, result['state'])
             print(f"[Evolve] Brain updated neural weights. Loss: {loss:.6f}")
 
-            # Save state periodically
+            # 5. Neuroevolution Check
+            # Every 10 cycles, check if we are ready to grow a bigger brain
             if iteration % 10 == 0:
-                brain.save_state("ai_core/brain_state.pth")
+                evolved, message = brain.attempt_neuroevolution()
+                if evolved:
+                    print(f"*** EVOLUTIONARY EVENT *** {message}")
+
+                brain.save_state("brain_state.pth")
                 print("[System] Brain state saved.")
 
             # Brief pause to mimic "thought" and be polite to web servers
@@ -64,7 +70,7 @@ def life_loop():
 
     except KeyboardInterrupt:
         print("\n[System] Saving state and shutting down...")
-        brain.save_state("ai_core/brain_state.pth")
+        brain.save_state("brain_state.pth")
         sys.exit(0)
 
 if __name__ == "__main__":
