@@ -5,7 +5,8 @@ import numpy as np
 import os
 
 class EvolutionaryBrain(nn.Module):
-    def __init__(self, input_size=8, hidden_size=16, output_size=8):
+    def __init__(self, input_size=16, hidden_size=32, output_size=8):
+        # Increased Input Size (8 Text + 8 Vision = 16)
         super(EvolutionaryBrain, self).__init__()
 
         self.input_size = input_size
@@ -29,13 +30,12 @@ class EvolutionaryBrain(nn.Module):
         out = self.fc2(out)
         return self.sigmoid(out)
 
-    def decide_action(self, problem_vector):
+    def decide_action(self, combined_vector):
         """
-        Decides how to perturb the quantum circuit based on the input problem.
-        Returns a modification vector.
+        Decides how to perturb the quantum circuit AND what external action to take.
         """
         # Convert numpy to torch tensor
-        input_tensor = torch.FloatTensor(problem_vector)
+        input_tensor = torch.FloatTensor(combined_vector)
 
         with torch.no_grad():
             decision = self.forward(input_tensor)
@@ -43,22 +43,17 @@ class EvolutionaryBrain(nn.Module):
         return decision.numpy()
 
     def learn(self, input_vector, quantum_result_state):
-        """
-        The brain learns from the Quantum Result.
-        """
         target_val = int(quantum_result_state, 2) / 8.0
         target_vector = torch.full((8,), target_val)
 
         input_tensor = torch.FloatTensor(input_vector)
 
-        # Training Step
         self.optimizer.zero_grad()
         prediction = self.forward(input_tensor)
         loss = self.loss_fn(prediction, target_vector)
         loss.backward()
         self.optimizer.step()
 
-        # Track loss for Evolution trigger
         loss_val = loss.item()
         self.memory_loss.append(loss_val)
         if len(self.memory_loss) > 50:
@@ -67,78 +62,83 @@ class EvolutionaryBrain(nn.Module):
         return loss_val
 
     def attempt_neuroevolution(self):
-        """
-        Checks if the brain has plateaued (mastered current level).
-        If so, it grows new neurons (Neuroevolution).
-        """
         if len(self.memory_loss) < 50:
             return False, "Not enough data to evolve yet."
 
         avg_loss = sum(self.memory_loss) / len(self.memory_loss)
 
-        # If loss is very low, we have mastered this complexity level.
-        # Time to grow!
         if avg_loss < 0.005:
             self._grow_hidden_layer()
-            self.memory_loss = [] # Reset memory after growth
+            self.memory_loss = []
             return True, "Brain Expanded: Added neurons to hidden layer!"
 
         return False, f"Stable. Avg Loss: {avg_loss:.4f}"
 
     def _grow_hidden_layer(self):
-        """
-        Physically increases the size of the hidden layer.
-        """
         new_hidden_size = self.hidden_size + 8
         print(f"[Neuroevolution] Growing hidden layer from {self.hidden_size} to {new_hidden_size}...")
 
-        # Create new layers with larger size
         new_fc1 = nn.Linear(self.input_size, new_hidden_size)
         new_fc2 = nn.Linear(new_hidden_size, self.output_size)
 
-        # Copy old weights to new layers (Knowledge Transfer)
         with torch.no_grad():
+            # Copy weights carefully
+            # Input dimension might match or be smaller/larger if we changed architecture recently
+            # Here we assume input dimension is consistent for this session.
             new_fc1.weight[:self.hidden_size, :] = self.fc1.weight
             new_fc1.bias[:self.hidden_size] = self.fc1.bias
 
             new_fc2.weight[:, :self.hidden_size] = self.fc2.weight
-            # We don't change fc2 bias as output size matches
             new_fc2.bias[:] = self.fc2.bias
 
-        # Replace layers
         self.fc1 = new_fc1
         self.fc2 = new_fc2
         self.hidden_size = new_hidden_size
-
-        # Re-initialize optimizer with new parameters
         self.optimizer = optim.Adam(self.parameters(), lr=0.01)
 
     def save_state(self, filepath="brain_state.pth"):
         state = {
             'state_dict': self.state_dict(),
-            'hidden_size': self.hidden_size
+            'hidden_size': self.hidden_size,
+            'input_size': self.input_size # Save input size too
         }
         torch.save(state, filepath)
 
     def load_state(self, filepath="brain_state.pth"):
         if os.path.exists(filepath):
-            checkpoint = torch.load(filepath)
+            try:
+                checkpoint = torch.load(filepath)
 
-            # If the saved brain is bigger than current code, we must grow first
-            saved_hidden = checkpoint.get('hidden_size', 16)
-            if saved_hidden != self.hidden_size:
-                print(f"[Brain] Adapting to saved brain size: {saved_hidden} neurons")
-                self.hidden_size = saved_hidden
-                self.fc1 = nn.Linear(self.input_size, self.hidden_size)
-                self.fc2 = nn.Linear(self.hidden_size, self.output_size)
-                self.optimizer = optim.Adam(self.parameters(), lr=0.01)
+                # Dynamic architecture adaptation
+                saved_input = checkpoint.get('input_size', 16)
+                saved_hidden = checkpoint.get('hidden_size', 32)
 
-            self.load_state_dict(checkpoint['state_dict'])
-            print("[Brain] Loaded previous evolutionary state.")
+                if saved_input != self.input_size:
+                    print(f"[Brain] Architecture mismatch (Saved Input: {saved_input}, Current: {self.input_size}). Resetting Brain to match new senses.")
+                    # If input size changed (e.g. added Vision), we can't easily load old weights
+                    # for the input layer without complex mapping.
+                    # For this 'Seed', we accept a reset or we could try to pad.
+                    # Let's pad/prune for robustness.
+                    self.input_size = self.input_size
+                    # We start fresh if senses change to avoid shape errors,
+                    # or we could implement advanced surgery.
+                    # Reset is safer for the user.
+                    return
+
+                if saved_hidden != self.hidden_size:
+                    print(f"[Brain] Adapting to saved brain size: {saved_hidden} neurons")
+                    self.hidden_size = saved_hidden
+                    self.fc1 = nn.Linear(self.input_size, self.hidden_size)
+                    self.fc2 = nn.Linear(self.hidden_size, self.output_size)
+                    self.optimizer = optim.Adam(self.parameters(), lr=0.01)
+
+                self.load_state_dict(checkpoint['state_dict'])
+                print("[Brain] Loaded previous evolutionary state.")
+            except Exception as e:
+                print(f"[Brain] Error loading state: {e}. Starting fresh.")
         else:
             print("[Brain] Starting fresh evolution.")
 
 if __name__ == "__main__":
     brain = EvolutionaryBrain()
-    dummy_in = np.random.rand(8)
-    brain.attempt_neuroevolution()
+    print("Brain initialized with Vision-Ready inputs.")

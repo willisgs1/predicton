@@ -1,0 +1,40 @@
+{
+  "concepts": {
+    "WebData": {
+      "related": [
+        "000"
+      ],
+      "weight": 1
+    }
+  },
+  "observations": [
+    {
+      "timestamp": 1765443991.0257676,
+      "source": "https://en.wikipedia.org/wiki/Quantum_computing",
+      "state": "000",
+      "confidence": 0.8310546875
+    },
+    {
+      "timestamp": 1765443993.865066,
+      "source": "https://ui.adsabs.harvard.edu/abs/1996Sci...273.1073L",
+      "state": "000",
+      "confidence": 0.8388671875
+    },
+    {
+      "timestamp": 1765443996.4300175,
+      "source": "https://doi.org/10.1016%2Fj.tcs.2014.05.025",
+      "state": "000",
+      "confidence": 0.8486328125
+    },
+    {
+      "timestamp": 1765443999.119932,
+      "source": "https://www.wikidata.org/wiki/Q17995793#identifiers",
+      "state": "000",
+      "confidence": 0.8525390625
+    }
+  ],
+  "stats": {
+    "cycles": 0,
+    "successful_mutations": 0
+  }
+}
