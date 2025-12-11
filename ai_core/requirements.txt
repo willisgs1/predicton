@@ -1,0 +1,7 @@
+qiskit
+qiskit-aer
+torch
+requests
+beautifulsoup4
+numpy
+qiskit-ibm-runtime
