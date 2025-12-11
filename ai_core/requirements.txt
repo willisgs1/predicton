@@ -8,3 +8,6 @@ numpy
 torchvision
 pillow
 gTTS
+transformers
+accelerate
+flask
