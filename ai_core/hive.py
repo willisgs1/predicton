@@ -1,6 +1,9 @@
 from flask import Flask, request, jsonify
 import threading
 import time
+import zipfile
+import os
+import io
 
 class HiveMind:
     def __init__(self, port=5000):
@@ -20,12 +23,42 @@ class HiveMind:
         self.thread.start()
         print(f"[Hive] Queen Server listening on port {self.port}")
 
+        # Create deployment bundle immediately
+        self.generate_drone_bundle()
+
     def _run_server(self):
-        # Suppress Flask logs
         import logging
         log = logging.getLogger('werkzeug')
         log.setLevel(logging.ERROR)
         self.app.run(host='0.0.0.0', port=self.port)
+
+    def generate_drone_bundle(self):
+        """
+        Creates a zip file containing drone.py and instructions.
+        Allows easy distribution (The 'Viral' feature, but manual/consensual).
+        """
+        if not os.path.exists("workspace"):
+            os.makedirs("workspace")
+
+        zip_path = "workspace/drone_deploy.zip"
+        try:
+            with zipfile.ZipFile(zip_path, 'w') as zf:
+                if os.path.exists("drone.py"):
+                    zf.write("drone.py")
+
+                # Add a readme
+                readme = """
+                HIVE MIND DRONE DEPLOYMENT
+                --------------------------
+                1. Extract this zip.
+                2. Run 'python drone.py' on any machine.
+                3. Ensure the machine can reach the Queen IP (edit drone.py if needed).
+                """
+                zf.writestr("README.txt", readme)
+
+            print(f"[Hive] Drone Deployment Bundle created at {zip_path}")
+        except Exception as e:
+            print(f"[Hive] Failed to bundle drone: {e}")
 
     def join(self):
         data = request.json
@@ -43,7 +76,6 @@ class HiveMind:
     def submit_result(self):
         data = request.json
         self.results.append(data)
-        # print(f"[Hive] Received result from {data.get('drone_id')}")
         return jsonify({"status": "ok"})
 
     def add_job(self, task_type, data):

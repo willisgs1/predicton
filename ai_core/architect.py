@@ -8,23 +8,21 @@ class Architect:
         if not os.path.exists(self.plugins_dir):
             os.makedirs(self.plugins_dir)
 
-        # Initialize the LLM
         self.mind = LocalMind()
-
-        # Fallback templates if LLM is offline
         self.genes = {
             "math": "    x = random.randint(1, 100)\n    y = random.randint(1, 100)\n    print(f'[Plugin] {x} * {y} = {x*y}')",
             "search": "    items = ['quantum', 'ai', 'data', 'code']\n    found = random.choice(items)\n    print(f'[Plugin] Found item: {found}')",
         }
 
     def attempt_creation(self, context="General exploration"):
-        """
-        Attempts to create a new plugin script using the LLM.
-        """
-        # 20% chance to create something new
+        # 20% chance to create/refine
         if random.random() < 0.2:
-            self._synthesize_plugin(context)
-            return True, "Architect synthesized a new skill."
+            # 50/50 chance to Create New vs Refine Existing
+            if random.random() < 0.5:
+                self._synthesize_plugin(context)
+                return True, "Architect synthesized a NEW skill."
+            else:
+                return self._refine_plugin()
         return False, "Architect is dreaming..."
 
     def _synthesize_plugin(self, context):
@@ -33,18 +31,12 @@ class Architect:
         filepath = os.path.join(self.plugins_dir, filename)
 
         content = ""
-
-        # Try LLM first
         if self.mind.active:
             print(f"[Architect] Asking Qwen to write code for: {context}")
-            generated_code = self.mind.generate_code(context)
-            if generated_code:
-                content = generated_code
-                # Ensure it has a run() function if the LLM forgot
-                if "def run():" not in content:
-                    content = "def run():\n    pass\n" + content
+            content = self.mind.generate_code(context)
+            if content and "def run():" not in content:
+                content = "def run():\n    pass\n" + content
 
-        # Fallback to templates if LLM failed or yielded empty
         if not content:
             gene = random.choice(list(self.genes.values()))
             content = "import random\nimport os\n\ndef run():\n"
@@ -54,6 +46,36 @@ class Architect:
         with open(filepath, 'w') as f:
             f.write(content)
 
+    def _refine_plugin(self):
+        """
+        Reads an existing plugin and asks the LLM to improve it.
+        """
+        if not self.mind.active:
+            return False, "Architect cannot refine (LLM offline)."
+
+        files = [f for f in os.listdir(self.plugins_dir) if f.endswith(".py") and "v2" not in f]
+        if not files:
+            return False, "No skills to refine."
+
+        target_file = random.choice(files)
+        filepath = os.path.join(self.plugins_dir, target_file)
+
+        with open(filepath, 'r') as f:
+            original_code = f.read()
+
+        print(f"[Architect] Refining {target_file}...")
+        prompt = f"Optimize and improve this Python code. Add error handling and comments.\n\nCode:\n{original_code}"
+        new_code = self.mind.generate_code(prompt)
+
+        if new_code:
+            new_filename = target_file.replace(".py", "_v2.py")
+            new_filepath = os.path.join(self.plugins_dir, new_filename)
+            with open(new_filepath, 'w') as f:
+                f.write(new_code)
+            return True, f"Architect REFINED {target_file} into {new_filename}."
+
+        return False, "Architect failed to refine."
+
 if __name__ == "__main__":
     arch = Architect("test_plugins")
-    arch.attempt_creation("Analyze network traffic")
+    arch.attempt_creation()

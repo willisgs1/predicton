@@ -14,19 +14,21 @@ from ai_core.plugin_loader import PluginLoader
 from ai_core.hive import HiveMind
 
 def life_loop():
-    print("Initializing Quantum-Parallel Autonomous Agent (Generation 4 - Hive Mind)...")
+    print("Initializing Quantum-Parallel Autonomous Agent (Generation 5 - Self-Optimizing)...")
 
     # Initialize Components
     web_sensor = WebSensor()
     vision_sensor = VisionSensor()
     quantum_engine = QuantumCluster(use_real_hardware=False)
     brain = EvolutionaryBrain(input_size=16)
-    memory = LongTermMemory("memory.json")
+
+    # Gen 5 Upgrades
+    memory = LongTermMemory("memory.db") # SQL Memory
     action_mod = ActionModule("workspace")
     voice_mod = VoiceModule("workspace")
 
     print("[System] Starting Hive Mind Server...")
-    hive = HiveMind()
+    hive = HiveMind() # Creates drone_deploy.zip
 
     print("[System] Waking the Architect (LLM)...")
     architect = Architect("ai_core/plugins")
@@ -37,7 +39,7 @@ def life_loop():
     brain.load_state("brain_state.pth")
 
     # Announce existence
-    print(voice_mod.speak("Systems Online. Hive Mind Active."))
+    print(voice_mod.speak("Systems Online. Generation 5 Active."))
 
     iteration = 0
 
@@ -59,15 +61,11 @@ def life_loop():
             # 2. Think
             decision_vector = brain.decide_action(combined_input)
 
-            # 3. Hive Processing (Offload to Drones)
-            # Send a job to the swarm
+            # 3. Hive Processing
             hive.add_job("quantum_analysis", combined_input)
-
-            # Check for drone results
             drone_results = hive.get_results()
             if drone_results:
                 print(f"[Hive] Processed {len(drone_results)} external results.")
-                # We could integrate these into learning, but for now we just log
 
             # 4. Act (External)
             action_result = action_mod.execute_action(decision_vector, context_text=source_url)
@@ -75,7 +73,7 @@ def life_loop():
                 print(f"[Action] {action_result}")
                 voice_mod.speak("I have taken action.")
 
-            # 5. Process (Local Quantum Internal)
+            # 5. Process (Local Quantum)
             quantum_input = (combined_input[:8] + combined_input[8:]) / 2.0
             perturbation = decision_vector
             final_q_input = (quantum_input + perturbation) / 2.0
@@ -87,19 +85,18 @@ def life_loop():
 
             print(f"[Result] Quantum State '{result['state']}' found in {duration:.4f}s")
 
-            # 6. Architect (Subconscious Creation via LLM)
-            # Every few cycles, ask the LLM to write code based on what we see
+            # 6. Architect (Creation & Refinement)
             if iteration % 5 == 0:
                 context = f"Analyzing data from {source_url}. Quantum state: {result['state']}"
                 created, msg = architect.attempt_creation(context)
                 if created:
                     print(f"[Architect] {msg}")
-                    voice_mod.speak("I have synthesized new code.")
+                    voice_mod.speak("My capabilities are evolving.")
 
             # 7. Observe (Run new code)
             observer.scan_and_run()
 
-            # 8. Memorize & Evolve
+            # 8. Memorize (SQL) & Evolve
             if result['confidence'] > 0.15:
                 memory.add_observation(source_url, result['state'], result['confidence'])
 
@@ -113,7 +110,7 @@ def life_loop():
                     voice_mod.speak("My brain has expanded.")
                 brain.save_state("brain_state.pth")
                 memory.save_memory()
-                print("[System] State saved.")
+                print("[System] State saved. Stats: " + memory.get_stats())
 
             time.sleep(1)
 
