@@ -19,13 +19,11 @@ class SecurityModule:
             return key
 
     def encrypt(self, data):
-        """Encrypts a string or bytes."""
         if isinstance(data, str):
             data = data.encode()
         return self.cipher.encrypt(data)
 
     def decrypt(self, token):
-        """Decrypts a token back to string."""
         return self.cipher.decrypt(token).decode()
 
     def get_key_str(self):

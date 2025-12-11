@@ -8,9 +8,6 @@ class PluginLoader:
         self.loaded_plugins = {}
 
     def scan_and_run(self):
-        """
-        Scans the plugins directory for new files and executes them.
-        """
         if not os.path.exists(self.plugins_dir):
             return
 

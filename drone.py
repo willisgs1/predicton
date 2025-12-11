@@ -3,13 +3,11 @@ import time
 import random
 import sys
 import numpy as np
-import threading
 from cryptography.fernet import Fernet
 
-# Configuration
 INITIAL_HIVE_URL = "http://localhost:5000"
 DRONE_ID = f"Drone_{random.randint(1000, 9999)}"
-KEY = None # Will be requested from user or loaded
+KEY = None
 
 def get_cipher():
     if KEY:
@@ -30,8 +28,6 @@ class DroneClient:
         self.is_queen = False
 
     def handshake(self):
-        # In a real deployment, the key would be securely distributed or input by user.
-        # For this seed, we assume the user provides it or it's in a file.
         try:
             with open("secret.key", "r") as f:
                 self.cipher = Fernet(f.read().strip().encode())
@@ -43,7 +39,6 @@ class DroneClient:
         try:
             payload = {"id": DRONE_ID}
             if self.cipher:
-                # Encrypt ID as a handshake test
                 payload["secure_token"] = self.cipher.encrypt(DRONE_ID.encode()).decode()
 
             requests.post(f"{self.hive_url}/join", json=payload)
@@ -53,24 +48,17 @@ class DroneClient:
             return False
 
     def promote_to_queen(self):
-        """
-        Hydra Protocol: If Queen is dead, become the Queen.
-        """
         print("!!! QUEEN UNREACHABLE. INITIATING HYDRA PROTOCOL !!!")
         print(f"Drone {DRONE_ID} is promoting to Queen...")
         self.is_queen = True
 
-        # Start a local Hive Server (Simplified)
-        # In a real app, this would import HiveMind and run it.
-        # For the drone script (which is standalone), we can't easily import the full AI Core.
-        # So we just simulate the takeover or try to execute the hive script if present.
         import os
         if os.path.exists("ai_core/hive.py"):
             print("Starting local Hive Server...")
             os.system("python -m ai_core.hive &")
             self.hive_url = "http://localhost:5000"
-            time.sleep(5) # Wait for startup
-            self.is_queen = False # Revert to worker, now connected to local
+            time.sleep(5)
+            self.is_queen = False
         else:
             print("Cannot promote: AI Core not found on this node.")
 
@@ -83,13 +71,10 @@ class DroneClient:
         while True:
             try:
                 response = requests.get(f"{self.hive_url}/job")
-                fail_count = 0 # Reset on success
+                fail_count = 0
 
                 if response.status_code == 200:
                     job = response.json()
-
-                    # Decrypt job if needed
-                    # (Simplified for this proto: assumes job data is plain JSON for now)
 
                     if job.get("task") == "wait":
                         time.sleep(1)
@@ -98,7 +83,6 @@ class DroneClient:
                     print(f"Processing job: {job.get('type')}")
                     result = process_quantum_task(job.get("data"))
 
-                    # Submit
                     requests.post(f"{self.hive_url}/submit", json={
                         "drone_id": DRONE_ID,
                         "result": result

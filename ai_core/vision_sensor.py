@@ -10,8 +10,6 @@ import numpy as np
 class VisionSensor:
     def __init__(self):
         # We use a lightweight pre-trained MobileNetV3 for "Sight"
-        # It converts images into a 1000-dimensional vector (classification logits)
-        # We will reduce this to a smaller vector for our Brain.
         try:
             self.model = models.mobilenet_v3_small(weights=models.MobileNet_V3_Small_Weights.DEFAULT)
             self.model.eval()
@@ -64,11 +62,10 @@ class VisionSensor:
                 with torch.no_grad():
                     output = self.model(input_batch)
 
-                # Output is 1x1000. We want a dense 8-dim summary for our seed brain.
-                # We can average chunks of the vector.
+                # Output is 1x1000. We want a dense 8-dim summary.
                 output_np = output.numpy().flatten()
 
-                # Simple dimensionality reduction: Average every 125 elements to get 8 values
+                # Simple dimensionality reduction: Average every 125 elements
                 reduced = output_np.reshape(8, 125).mean(axis=1)
 
                 # Normalize
@@ -78,13 +75,11 @@ class VisionSensor:
 
                 return reduced
         except Exception as e:
-            # print(f"[Vision] Failed to process image: {e}")
             pass
 
         return np.zeros(8)
 
 if __name__ == "__main__":
     vision = VisionSensor()
-    # Test with a known image
     vec = vision.process_image("https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png")
     print("Visual Vector:", vec)

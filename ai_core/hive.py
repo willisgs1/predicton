@@ -13,17 +13,14 @@ class HiveMind:
         self.jobs = []
         self.results = []
 
-        # Define routes
         self.app.route('/join', methods=['POST'])(self.join)
         self.app.route('/job', methods=['GET'])(self.get_job)
         self.app.route('/submit', methods=['POST'])(self.submit_result)
 
-        # Start server in thread
         self.thread = threading.Thread(target=self._run_server, daemon=True)
         self.thread.start()
         print(f"[Hive] Queen Server listening on port {self.port}")
 
-        # Create deployment bundle immediately
         self.generate_drone_bundle()
 
     def _run_server(self):
@@ -33,10 +30,6 @@ class HiveMind:
         self.app.run(host='0.0.0.0', port=self.port)
 
     def generate_drone_bundle(self):
-        """
-        Creates a zip file containing drone.py and instructions.
-        Allows easy distribution (The 'Viral' feature, but manual/consensual).
-        """
         if not os.path.exists("workspace"):
             os.makedirs("workspace")
 
@@ -46,7 +39,6 @@ class HiveMind:
                 if os.path.exists("drone.py"):
                     zf.write("drone.py")
 
-                # Add a readme
                 readme = """
                 HIVE MIND DRONE DEPLOYMENT
                 --------------------------

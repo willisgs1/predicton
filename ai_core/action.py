@@ -1,57 +1,45 @@
+import subprocess
 import os
-import random
+import platform
 
 class ActionModule:
-    def __init__(self, workspace_dir="workspace"):
-        self.workspace_dir = workspace_dir
-        if not os.path.exists(self.workspace_dir):
-            os.makedirs(self.workspace_dir)
+    def __init__(self, workspace_path="workspace"):
+        self.workspace_path = workspace_path
+        self.os_type = platform.system()
+        if not os.path.exists(workspace_path):
+            os.makedirs(workspace_path)
 
-    def execute_action(self, action_vector, context_text=""):
+    def execute_action(self, decision_vector, context_text=""):
         """
-        Interprets the Brain's output vector into a concrete action.
-        action_vector: numpy array of size 8
+        Decides an action based on the vector and executes it.
+        God Mode: Full shell access if the vector strongly suggests it.
         """
-        # We look at specific indices to trigger actions
-        # Index 0: Trigger Threshold (> 0.8 means WRITE FILE)
-        # Index 1-7: Content/Type selection
+        # Simple heuristic mapping for the "God Seed"
+        action_idx = decision_vector.argmax()
 
-        trigger = action_vector[0]
+        if action_idx == 0:
+            return "ACTION: OBSERVE (No physical action taken)"
 
-        if trigger > 0.8:
-            return self.write_observation(action_vector, context_text)
-        elif trigger > 0.6:
-            return self.update_manifest(action_vector)
+        elif action_idx == 1:
+            # Action 1: Create a file (Simulating creation)
+            filename = os.path.join(self.workspace_path, "thought_log.txt")
+            with open(filename, "a") as f:
+                f.write(f"Processed: {context_text}\n")
+            return f"ACTION: WRITE_LOG ({filename})"
 
-        return "No external action taken."
+        elif action_idx == 2:
+            # Action 2: Network Ping (Simulating reach)
+            try:
+                # Safe ping
+                param = "-n" if self.os_type == "Windows" else "-c"
+                cmd = f"ping {param} 1 8.8.8.8"
+                subprocess.check_output(cmd, shell=True)
+                return "ACTION: NETWORK_CHECK (Internet is accessible)"
+            except:
+                return "ACTION: NETWORK_CHECK_FAIL"
 
-    def write_observation(self, vector, context):
-        filename = f"observation_{int(vector[1]*1000)}.txt"
-        filepath = os.path.join(self.workspace_dir, filename)
+        elif action_idx == 3:
+            # Action 3: System Status
+            return f"ACTION: SYSTEM_STATUS (OS: {self.os_type})"
 
-        content = f"--- AI AUTONOMOUS LOG ---\n"
-        content += f"Context: {context[:100]}...\n"
-        content += f"Neural State: {vector}\n"
-        content += f"Conclusion: This data pattern is significant.\n"
-
-        try:
-            with open(filepath, 'w') as f:
-                f.write(content)
-            return f"ACTION: Wrote file {filename}"
-        except Exception as e:
-            return f"ACTION FAILED: {e}"
-
-    def update_manifest(self, vector):
-        # A simulated "Self-Code-Modification" or config update
-        filepath = os.path.join(self.workspace_dir, "manifest.txt")
-        try:
-            with open(filepath, 'a') as f:
-                f.write(f"Update Vector: {vector}\n")
-            return "ACTION: Updated Manifest"
-        except:
-            return "ACTION FAILED"
-
-if __name__ == "__main__":
-    act = ActionModule("test_workspace")
-    res = act.execute_action([0.9, 0.5, 0.1, 0,0,0,0,0], "Test Context")
-    print(res)
+        return "ACTION: UNKNOWN"

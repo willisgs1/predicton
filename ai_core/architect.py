@@ -3,21 +3,19 @@ import random
 from ai_core.llm import LocalMind
 
 class Architect:
-    def __init__(self, plugins_dir="ai_core/plugins"):
+    def __init__(self, plugins_dir="ai_core/plugins", mind=None):
         self.plugins_dir = plugins_dir
         if not os.path.exists(self.plugins_dir):
             os.makedirs(self.plugins_dir)
 
-        self.mind = LocalMind()
+        self.mind = mind if mind else LocalMind()
         self.genes = {
             "math": "    x = random.randint(1, 100)\n    y = random.randint(1, 100)\n    print(f'[Plugin] {x} * {y} = {x*y}')",
             "search": "    items = ['quantum', 'ai', 'data', 'code']\n    found = random.choice(items)\n    print(f'[Plugin] Found item: {found}')",
         }
 
     def attempt_creation(self, context="General exploration"):
-        # 20% chance to create/refine
         if random.random() < 0.2:
-            # 50/50 chance to Create New vs Refine Existing
             if random.random() < 0.5:
                 self._synthesize_plugin(context)
                 return True, "Architect synthesized a NEW skill."
@@ -47,9 +45,6 @@ class Architect:
             f.write(content)
 
     def _refine_plugin(self):
-        """
-        Reads an existing plugin and asks the LLM to improve it.
-        """
         if not self.mind.active:
             return False, "Architect cannot refine (LLM offline)."
 
