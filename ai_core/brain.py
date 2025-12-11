@@ -3,10 +3,10 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import os
+import json
 
 class EvolutionaryBrain(nn.Module):
     def __init__(self, input_size=16, hidden_size=32, output_size=8):
-        # Increased Input Size (8 Text + 8 Vision = 16)
         super(EvolutionaryBrain, self).__init__()
 
         self.input_size = input_size
@@ -23,6 +23,7 @@ class EvolutionaryBrain(nn.Module):
         self.loss_fn = nn.MSELoss()
 
         self.memory_loss = []
+        self.training_buffer = [] # Stores successful interactions
 
     def forward(self, x):
         out = self.fc1(x)
@@ -31,15 +32,9 @@ class EvolutionaryBrain(nn.Module):
         return self.sigmoid(out)
 
     def decide_action(self, combined_vector):
-        """
-        Decides how to perturb the quantum circuit AND what external action to take.
-        """
-        # Convert numpy to torch tensor
         input_tensor = torch.FloatTensor(combined_vector)
-
         with torch.no_grad():
             decision = self.forward(input_tensor)
-
         return decision.numpy()
 
     def learn(self, input_vector, quantum_result_state):
@@ -58,6 +53,14 @@ class EvolutionaryBrain(nn.Module):
         self.memory_loss.append(loss_val)
         if len(self.memory_loss) > 50:
             self.memory_loss.pop(0)
+
+        # Log for Self-Training if loss is low (Good Prediction)
+        if loss_val < 0.1:
+            self.training_buffer.append({
+                "input": input_vector.tolist(),
+                "output": prediction.detach().numpy().tolist(),
+                "target": target_vector.tolist()
+            })
 
         return loss_val
 
@@ -82,9 +85,6 @@ class EvolutionaryBrain(nn.Module):
         new_fc2 = nn.Linear(new_hidden_size, self.output_size)
 
         with torch.no_grad():
-            # Copy weights carefully
-            # Input dimension might match or be smaller/larger if we changed architecture recently
-            # Here we assume input dimension is consistent for this session.
             new_fc1.weight[:self.hidden_size, :] = self.fc1.weight
             new_fc1.bias[:self.hidden_size] = self.fc1.bias
 
@@ -96,11 +96,35 @@ class EvolutionaryBrain(nn.Module):
         self.hidden_size = new_hidden_size
         self.optimizer = optim.Adam(self.parameters(), lr=0.01)
 
+    def export_training_data(self, filepath="workspace/training_data.jsonl"):
+        """
+        Exports successful interactions for future LLM Fine-Tuning or Batch Training.
+        """
+        if not self.training_buffer:
+            return
+
+        if not os.path.exists("workspace"):
+            os.makedirs("workspace")
+
+        with open(filepath, 'a') as f:
+            for entry in self.training_buffer:
+                # Format as ChatML for Qwen fine-tuning context
+                json_line = {
+                    "messages": [
+                        {"role": "user", "content": f"Input Vector: {entry['input']}"},
+                        {"role": "assistant", "content": f"Target Vector: {entry['target']}"}
+                    ]
+                }
+                f.write(json.dumps(json_line) + "\n")
+
+        print(f"[Brain] Exported {len(self.training_buffer)} samples for self-training.")
+        self.training_buffer = []
+
     def save_state(self, filepath="brain_state.pth"):
         state = {
             'state_dict': self.state_dict(),
             'hidden_size': self.hidden_size,
-            'input_size': self.input_size # Save input size too
+            'input_size': self.input_size
         }
         torch.save(state, filepath)
 
@@ -108,25 +132,14 @@ class EvolutionaryBrain(nn.Module):
         if os.path.exists(filepath):
             try:
                 checkpoint = torch.load(filepath)
-
-                # Dynamic architecture adaptation
                 saved_input = checkpoint.get('input_size', 16)
                 saved_hidden = checkpoint.get('hidden_size', 32)
 
                 if saved_input != self.input_size:
-                    print(f"[Brain] Architecture mismatch (Saved Input: {saved_input}, Current: {self.input_size}). Resetting Brain to match new senses.")
-                    # If input size changed (e.g. added Vision), we can't easily load old weights
-                    # for the input layer without complex mapping.
-                    # For this 'Seed', we accept a reset or we could try to pad.
-                    # Let's pad/prune for robustness.
-                    self.input_size = self.input_size
-                    # We start fresh if senses change to avoid shape errors,
-                    # or we could implement advanced surgery.
-                    # Reset is safer for the user.
+                    print(f"[Brain] Architecture mismatch. Resetting.")
                     return
 
                 if saved_hidden != self.hidden_size:
-                    print(f"[Brain] Adapting to saved brain size: {saved_hidden} neurons")
                     self.hidden_size = saved_hidden
                     self.fc1 = nn.Linear(self.input_size, self.hidden_size)
                     self.fc2 = nn.Linear(self.hidden_size, self.output_size)
@@ -141,4 +154,5 @@ class EvolutionaryBrain(nn.Module):
 
 if __name__ == "__main__":
     brain = EvolutionaryBrain()
-    print("Brain initialized with Vision-Ready inputs.")
+    brain.learn(np.random.rand(16), "101")
+    brain.export_training_data()

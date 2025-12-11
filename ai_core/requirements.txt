@@ -11,3 +11,4 @@ gTTS
 transformers
 accelerate
 flask
+cryptography

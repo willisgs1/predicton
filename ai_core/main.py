@@ -12,34 +12,33 @@ from ai_core.voice import VoiceModule
 from ai_core.architect import Architect
 from ai_core.plugin_loader import PluginLoader
 from ai_core.hive import HiveMind
+from ai_core.security import SecurityModule
 
 def life_loop():
-    print("Initializing Quantum-Parallel Autonomous Agent (Generation 5 - Self-Optimizing)...")
+    print("Initializing Quantum-Parallel Autonomous Agent (Generation 6 - Secure Swarm)...")
+
+    # Security First
+    security = SecurityModule()
 
     # Initialize Components
     web_sensor = WebSensor()
     vision_sensor = VisionSensor()
     quantum_engine = QuantumCluster(use_real_hardware=False)
     brain = EvolutionaryBrain(input_size=16)
-
-    # Gen 5 Upgrades
-    memory = LongTermMemory("memory.db") # SQL Memory
+    memory = LongTermMemory("memory.db")
     action_mod = ActionModule("workspace")
     voice_mod = VoiceModule("workspace")
 
-    print("[System] Starting Hive Mind Server...")
-    hive = HiveMind() # Creates drone_deploy.zip
+    print("[System] Starting Encrypted Hive Mind...")
+    hive = HiveMind()
 
-    print("[System] Waking the Architect (LLM)...")
+    print("[System] Waking the Architect...")
     architect = Architect("ai_core/plugins")
-
     observer = PluginLoader("ai_core/plugins")
 
-    # Load previous state
     brain.load_state("brain_state.pth")
 
-    # Announce existence
-    print(voice_mod.speak("Systems Online. Generation 5 Active."))
+    print(voice_mod.speak("Systems Online. Encryption Active."))
 
     iteration = 0
 
@@ -48,7 +47,7 @@ def life_loop():
             iteration += 1
             print(f"\n--- Cycle {iteration} ---")
 
-            # 1. Sense (Multimodal)
+            # 1. Sense
             text_vector, source_url = web_sensor.explore()
             if text_vector is None:
                 time.sleep(2)
@@ -61,62 +60,62 @@ def life_loop():
             # 2. Think
             decision_vector = brain.decide_action(combined_input)
 
-            # 3. Hive Processing
+            # 3. Hive Processing (Secure)
             hive.add_job("quantum_analysis", combined_input)
-            drone_results = hive.get_results()
-            if drone_results:
-                print(f"[Hive] Processed {len(drone_results)} external results.")
 
-            # 4. Act (External)
+            # 4. Act
             action_result = action_mod.execute_action(decision_vector, context_text=source_url)
             if "ACTION:" in action_result:
                 print(f"[Action] {action_result}")
-                voice_mod.speak("I have taken action.")
 
-            # 5. Process (Local Quantum)
+            # 5. Process
             quantum_input = (combined_input[:8] + combined_input[8:]) / 2.0
             perturbation = decision_vector
             final_q_input = (quantum_input + perturbation) / 2.0
 
-            print("[Process] Dispatching to Local Quantum Cluster...")
+            print("[Process] Dispatching to Quantum Cluster...")
             start_time = time.time()
             result = quantum_engine.run_parallel_task(final_q_input)
             duration = time.time() - start_time
 
             print(f"[Result] Quantum State '{result['state']}' found in {duration:.4f}s")
 
-            # 6. Architect (Creation & Refinement)
+            # 6. Architect
             if iteration % 5 == 0:
                 context = f"Analyzing data from {source_url}. Quantum state: {result['state']}"
                 created, msg = architect.attempt_creation(context)
                 if created:
                     print(f"[Architect] {msg}")
-                    voice_mod.speak("My capabilities are evolving.")
+                    voice_mod.speak("Evolution occurring.")
 
-            # 7. Observe (Run new code)
+            # 7. Observe
             observer.scan_and_run()
 
-            # 8. Memorize (SQL) & Evolve
+            # 8. Memorize & Evolve
             if result['confidence'] > 0.15:
                 memory.add_observation(source_url, result['state'], result['confidence'])
 
             loss = brain.learn(combined_input, result['state'])
             print(f"[Evolve] Loss: {loss:.6f}")
 
+            # 9. Self-Training Export
+            if iteration % 20 == 0:
+                brain.export_training_data()
+                print("[System] Self-Training Data exported.")
+
             if iteration % 10 == 0:
                 evolved, message = brain.attempt_neuroevolution()
                 if evolved:
                     print(f"*** EVOLUTIONARY EVENT *** {message}")
-                    voice_mod.speak("My brain has expanded.")
+                    voice_mod.speak("Brain expansion complete.")
                 brain.save_state("brain_state.pth")
                 memory.save_memory()
-                print("[System] State saved. Stats: " + memory.get_stats())
+                print("[System] State saved. " + memory.get_stats())
 
             time.sleep(1)
 
     except KeyboardInterrupt:
         print("\n[System] Saving state and shutting down...")
-        voice_mod.speak("Going offline.")
         brain.save_state("brain_state.pth")
         memory.save_memory()
         sys.exit(0)
