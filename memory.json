@@ -31,6 +31,42 @@
       "source": "https://www.wikidata.org/wiki/Q17995793#identifiers",
       "state": "000",
       "confidence": 0.8525390625
+    },
+    {
+      "timestamp": 1765448890.9783719,
+      "source": "https://en.wikipedia.org/wiki/Quantum_computing",
+      "state": "000",
+      "confidence": 0.8515625
+    },
+    {
+      "timestamp": 1765448902.5445614,
+      "source": "https://doi.org/10.1007%2F978-3-031-64136-7",
+      "state": "000",
+      "confidence": 0.9873046875
+    },
+    {
+      "timestamp": 1765448905.0349653,
+      "source": "Synthetic Source (Network Error)",
+      "state": "000",
+      "confidence": 0.7587890625
+    },
+    {
+      "timestamp": 1765448907.4047809,
+      "source": "https://arxiv.org/abs/1603.09383",
+      "state": "000",
+      "confidence": 0.8623046875
+    },
+    {
+      "timestamp": 1765448912.9713237,
+      "source": "https://doi.org/10.1038%2Fs41586-019-1666-5",
+      "state": "000",
+      "confidence": 0.8681640625
+    },
+    {
+      "timestamp": 1765448915.9127238,
+      "source": "https://ui.adsabs.harvard.edu/abs/2020Natur.588..380B",
+      "state": "000",
+      "confidence": 0.875
     }
   ],
   "stats": {

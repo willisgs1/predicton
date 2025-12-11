@@ -8,20 +8,29 @@ from ai_core.quantum_processor import QuantumCluster
 from ai_core.brain import EvolutionaryBrain
 from ai_core.memory import LongTermMemory
 from ai_core.action import ActionModule
+from ai_core.voice import VoiceModule
+from ai_core.architect import Architect
+from ai_core.plugin_loader import PluginLoader
 
 def life_loop():
-    print("Initializing Quantum-Parallel Autonomous Agent (Generation 2 - Multimodal)...")
+    print("Initializing Quantum-Parallel Autonomous Agent (Generation 3 - Self-Extending)...")
 
     # Initialize Components
     web_sensor = WebSensor()
     vision_sensor = VisionSensor()
     quantum_engine = QuantumCluster(use_real_hardware=False)
-    brain = EvolutionaryBrain(input_size=16) # 8 Text + 8 Vision
+    brain = EvolutionaryBrain(input_size=16)
     memory = LongTermMemory("memory.json")
     action_mod = ActionModule("workspace")
+    voice_mod = VoiceModule("workspace")
+    architect = Architect("ai_core/plugins")
+    observer = PluginLoader("ai_core/plugins")
 
     # Load previous state
     brain.load_state("brain_state.pth")
+
+    # Announce existence
+    print(voice_mod.speak("Systems Online. Quantum Core Active."))
 
     iteration = 0
 
@@ -37,31 +46,21 @@ def life_loop():
                 continue
 
             print(f"[Input] Reading {source_url}")
-
-            # Try to see
             visual_vector = vision_sensor.scan_page_for_images(source_url)
-            if np.any(visual_vector):
-                print(f"[Vision] Analyzed visual data from page.")
-
-            # Combine Senses
             combined_input = np.concatenate((text_vector, visual_vector))
 
             # 2. Think
             decision_vector = brain.decide_action(combined_input)
 
             # 3. Act (External)
-            # The brain might decide to write a file based on what it saw
             action_result = action_mod.execute_action(decision_vector, context_text=source_url)
             if "ACTION:" in action_result:
                 print(f"[Action] {action_result}")
+                voice_mod.speak("I have taken action.")
 
             # 4. Process (Quantum Internal)
-            # We use the decision to guide the quantum search
-            # We fold the 16-dim input back to 8-dim for the current 3-qubit circuit
-            # (or we could upgrade the quantum circuit to 4 qubits, but let's fold for now)
             quantum_input = (combined_input[:8] + combined_input[8:]) / 2.0
-            perturbation = decision_vector # Use brain output to perturb
-
+            perturbation = decision_vector
             final_q_input = (quantum_input + perturbation) / 2.0
 
             print("[Process] Dispatching to Quantum Cluster...")
@@ -71,12 +70,21 @@ def life_loop():
 
             print(f"[Result] Quantum State '{result['state']}' found in {duration:.4f}s")
 
-            # 5. Memorize
-            if result['confidence'] > 0.15: # Threshold for "interesting"
-                memory.add_observation(source_url, result['state'], result['confidence'])
-                memory.associate_concept("WebData", result['state'])
+            # 5. Architect (Subconscious Creation)
+            # Every few cycles, the architect tries to write new code
+            if iteration % 5 == 0:
+                created, msg = architect.attempt_creation()
+                if created:
+                    print(f"[Architect] {msg}")
+                    voice_mod.speak("I have created a new capability.")
 
-            # 6. Evolve
+            # 6. Observe (Run new code)
+            observer.scan_and_run()
+
+            # 7. Memorize & Evolve
+            if result['confidence'] > 0.15:
+                memory.add_observation(source_url, result['state'], result['confidence'])
+
             loss = brain.learn(combined_input, result['state'])
             print(f"[Evolve] Loss: {loss:.6f}")
 
@@ -84,6 +92,7 @@ def life_loop():
                 evolved, message = brain.attempt_neuroevolution()
                 if evolved:
                     print(f"*** EVOLUTIONARY EVENT *** {message}")
+                    voice_mod.speak("My brain has expanded.")
                 brain.save_state("brain_state.pth")
                 memory.save_memory()
                 print("[System] State saved.")
@@ -92,6 +101,7 @@ def life_loop():
 
     except KeyboardInterrupt:
         print("\n[System] Saving state and shutting down...")
+        voice_mod.speak("Going offline.")
         brain.save_state("brain_state.pth")
         memory.save_memory()
         sys.exit(0)
